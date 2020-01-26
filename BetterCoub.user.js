@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterCoub
 // @namespace    https://github.com/tkachen/better-coub
-// @version      0.2
+// @version      0.2.1
 // @description  remove promoted stuff and filter content by tags and users
 // @author       tkachen
 // @match        https://coub.com/*
@@ -12,10 +12,14 @@
 
 (function() {
     'use strict';
+    
+    const blockedTagsField = 'bc_tag_blacklist'
+    const blockedUsersField = 'bc_user_blacklist'
+    const settingsField = 'bc_settings'
 
-    var blockedTags = JSON.parse(localStorage.getItem("bc_tag_blacklist")) || [];
-    var blockedUsers = JSON.parse(localStorage.getItem("bc_user_blacklist")) || [];
-    var settings = JSON.parse(localStorage.getItem("bc_settings")) || {};
+    var blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
+    var blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || [];
+    var settings = JSON.parse(localStorage.getItem(settingsField)) || {};
 
     function addStyles () {
         GM_addStyle('.related-tags a, .coub__tags-tag { position:relative; }');
@@ -52,33 +56,33 @@
         }
 
         // add filter button
-        $(link).append("<button type='button' class='filterByTag' title='Add tag to Blacklist'>&times;</button>");
+        $(link).append('<button type="button" class="filterByTag" title="Add tag to Blacklist">&times;</button>');
     }
 
     function addTagToRestricted (tag) {
-        blockedTags = JSON.parse(localStorage.getItem("blacklist")) || [];
+        blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
         if (!arrayContains(tag, blockedTags)) {
             blockedTags.push(tag);
-            localStorage.setItem("blacklist", JSON.stringify(blockedTags));
+            localStorage.setItem(blockedTagsField, JSON.stringify(blockedTags));
         }
     }
 
-    $(window).bind("load", function() {
+    $(window).bind('load', function() {
         addStyles()
 
-        $(document).arrive(".coub__promoted-badge", function(el) {
+        $(document).arrive('.coub__promoted-badge', function(el) {
             $(el).closest('.coub').remove();
         });
 
-        $("a[href^='/tags/']").each(function() {
+        $('a[href^="/tags/"]').each(function() {
             addButtonToTagLink(this);
         });
 
-        $(document).arrive("a[href^='/tags/']", function(el) {
+        $(document).arrive('a[href^="/tags/"]', function(el) {
             addButtonToTagLink(el);
         });
 
-        $(document).on("click", "button.filterByTag" , function(e) {
+        $(document).on('click', 'button.filterByTag' , function(e) {
             e.preventDefault();
             let tag = $(e.target).parent().attr('href').substring(6);
             addTagToRestricted(tag);
