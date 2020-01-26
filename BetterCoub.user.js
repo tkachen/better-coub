@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         BetterCoub
 // @namespace    https://github.com/tkachen/better-coub
-// @version      0.1
+// @version      0.2
 // @description  remove promoted stuff and filter content by tags and users
 // @author       tkachen
 // @match        https://coub.com/*
+// @downloadURL  https://github.com/tkachen/better-coub/raw/master/BetterCoub.user.js
 // @require      https://raw.githubusercontent.com/uzairfarooq/arrive/master/minified/arrive.min.js
 // @grant        GM_addStyle
 // ==/UserScript==
