@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         BetterCoub
 // @namespace    https://github.com/tkachen/better-coub
-// @version      0.2.2
-// @description  remove promoted stuff and filter content by tags and users
+// @version      0.3.0
+// @description  Filter out coubs by tags and users
 // @author       tkachen
 // @match        https://coub.com/*
 // @downloadURL  https://github.com/tkachen/better-coub/raw/master/BetterCoub.user.js
@@ -11,131 +11,204 @@
 // ==/UserScript==
 
 (function() {
-    'use strict';
-    
-    const blockedTagsField = 'bc_tag_blacklist'
-    const blockedUsersField = 'bc_user_blacklist'
-    const settingsField = 'bc_settings'
+  'use strict';
 
-    var blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
-    var blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
-    var settings = JSON.parse(localStorage.getItem(settingsField)) || {};
+  const blockedTagsField = 'bc_tag_blacklist';
+  const blockedUsersField = 'bc_user_blacklist';
 
-    function addStyles () {
-        GM_addStyle('.related-tags a, .coub__tags-tag { position:relative; }');
+  const coubClass = 'coub';
+  const tagClass = 'coub__tags-tag';
 
-        // fix for related tags block
-        GM_addStyle('.related-tags { display: flex; flex-wrap: wrap; }');
-        GM_addStyle('.related-tags .related-tags__title { flex: 0 0 100%; }');
-        GM_addStyle('.related-tags a { line-height: 30px; padding-top:0; padding-bottom:0; margin-right: 5px; margin-bottom: 5px;}');
+  const tagActionsClass = 'tagActions';
+  const tagBtnClass = 'tagBtn'
+  const blockTagBtnClass = 'blockTagBtn';
+  const copyTagBtnClass = 'copyTagBtn';
 
-        // filter buttons
-        GM_addStyle('.filterByTag { display: none; position: absolute; right: 0; line-height: inherit; height: inherit; width: 24px; padding: 0; font-weight: bold; font-size: 16px;border: none; background-color: black; color: white; cursor: pointer; vertical-align: middle; border-radius: inherit; }');
-        GM_addStyle('.filterByUser { display: none; line-height: inherit; height: inherit; padding: 0 6px; font-weight: bold; font-size: 16px;border: none; background-color: black; color: white; cursor: pointer; vertical-align: middle; border-radius: 8px; }');
-        GM_addStyle('.coub__tags-tag:hover .filterByTag, .related-tags a:hover .filterByTag { display: inline-block; }');
-        GM_addStyle('.description__stamp:hover .filterByUser { display: inline-block; }');
-        GM_addStyle('.filterByTag:hover, .filterByUser:hover { background-color: red; }');
+  const blockSvgIcon = `
+    <svg width="24" height="24" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  const copySvgIcon = `
+    <svg width="24" height="24" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  let blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
+  let blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
+
+  const customStyles = `
+    :root {
+      --btn-color: #000000;
+      --btn-hover-color: #FFFFFF;
+      --copy-btn-hover-bg: #0332FF;
+      --block-btn-hover-bg: #E81010;
     }
 
-    function arrayContains (needle, arrhaystack) {
-        return (arrhaystack.indexOf(needle) > -1);
+    .dark-theme {
+      --btn-color: #FFFFFF;
+      --btn-hover-color: #000000;
+      --copy-btn-hover-bg: #0084FF;
+      --block-btn-hover-bg: #D0021B;
     }
 
-    function objectHasProperty (prop, obj) {
-        return obj.hasOwnProperty(prop)
+    .${tagClass} {
+      min-width: 90px;
+      position: relative;
     }
 
-    function removeByTag (tag) {
-        $('.coub__tags-tag[href="/tags/'+tag+'"]').closest('.coub').remove();
+    .${tagActionsClass} {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 0;
+      flex-direction: row;
+      height: inherit;
+      background: inherit;
+      border-radius: inherit;
     }
 
-    function removeByUser (userId) {
-        $('.description__stamp a[href="/'+userId+'"]').closest('.coub').remove();
+    .${tagBtnClass} {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: inherit;
+      aspect-ratio: 1;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--btn-color);
+      cursor: pointer;
+      border-radius: inherit;
     }
 
-    function addButtonToTagLink (link) {
-        if (!link.hasAttribute('href')) return;
-        
-        // remove filtered
-        const tagValue = $(link).attr('href').substring(6);
-        if (arrayContains(tagValue, blockedTags)) {
-            $(link).closest('.coub').remove();
-        }
-
-        // add filter button
-        $(link).append('<button type="button" class="filterByTag" title="Add tag to Blacklist">&times;</button>');
+    .${tagClass}:hover .${tagActionsClass} {
+      display: flex;
     }
 
-    function addButtonToUserLink (link) {
-        if (!link.hasAttribute('href')) return;
-
-        // remove filtered
-        const userId = $(link).attr('href').substring(1);
-        if (objectHasProperty(userId, blockedUsers)) {
-            $(link).closest('.coub').remove();
-        }
-
-        // add filter button
-        $(link).parent().append('<button type="button" class="filterByUser" title="Add user to Blacklist">Block</button>');
+    .${tagBtnClass}:hover {
+      color: var(--btn-hover-color);
     }
 
-    function addTagToBlocked (tag) {
-        blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
-        if (!arrayContains(tag, blockedTags)) {
-            blockedTags.push(tag);
-            localStorage.setItem(blockedTagsField, JSON.stringify(blockedTags));
-        }
+    .${copyTagBtnClass}:hover {
+      background: var(--copy-btn-hover-bg);
     }
 
-    function addUserToBlocked (userId, userName) {
-        blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
-        if (!objectHasProperty(userId, blockedUsers)) {
-            blockedUsers[userId] = userName;
-            localStorage.setItem(blockedUsersField, JSON.stringify(blockedUsers));
-        }
+    .${blockTagBtnClass}:hover {
+      background: var(--block-btn-hover-bg);
     }
+  `;
 
-    $(window).bind('load', function() {
-        addStyles()
+  function initBetterCoub() {
+    GM_addStyle(customStyles);
 
-        $(document).arrive('.coub__promoted-badge', function(el) {
-            $(el).closest('.coub').remove();
-        });
-
-        $('a[href^="/tags/"]').each(function() {
-            addButtonToTagLink(this);
-        });
-
-        $('.description__stamp a:not([href^="/view/"]):not([href^="http"]):not([href="/apps"])').each(function() {
-            addButtonToUserLink(this);
-        });
-
-        $(document).arrive('a[href^="/tags/"]', function(el) {
-            addButtonToTagLink(el);
-        });
-
-        $(document).arrive('.description__stamp a:not([href^="/view/"]):not([href^="http"]):not([href="/apps"])', function(el) {
-            console.log('--BETTER_COUB--', 'arrive', el)
-            addButtonToUserLink(el);
-        });
-
-        $(document).on('click', 'button.filterByTag' , function(e) {
-            // TODO: put tag value in button attrs
-            e.preventDefault();
-            const tagLink = $(e.target).parent();
-            const tag = tagLink.attr('href').substring(6);
-            addTagToBlocked(tag);
-            removeByTag(tag);
-        });
-
-        $(document).on('click', 'button.filterByUser' , function(e) {
-            // TODO: put user id and name in button attrs
-            e.preventDefault();
-            const userLink = $(e.target).parent().find('.description__stamp__user')[0];
-            const userId = $(userLink).attr('href').substring(1);
-            const userName = $(userLink).attr('title');
-            addUserToBlocked(userId, userName);
-            removeByUser(userId);
-        });
+    document.arrive(`.${tagClass}[href^="/tags/"]`, {existing: true}, function(tagLink) {
+      addButtonToTagLink(tagLink);
     });
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest(`.${tagBtnClass}`)?.classList.contains(blockTagBtnClass)) {
+        handleOnClickBlockTag(e);
+      }
+      if (e.target.closest(`.${tagBtnClass}`)?.classList.contains(copyTagBtnClass)) {
+        handleOnClickCopyTag(e);
+      }
+    });
+  }
+
+  function handleOnClickBlockTag(e) {
+    e.preventDefault();
+    const tagLink = e.target.closest(`.${tagClass}`);
+    const tag = tagLink.getAttribute('href').substring(6);
+    addTagToBlocked(tag);
+    removeExistingCoubsByTag(tag);
+  }
+
+  function handleOnClickCopyTag(e) {
+    e.preventDefault();
+    const tagLink = e.target.closest(`.${tagClass}`);
+    const tag = tagLink.getAttribute('href').substring(6);
+    navigator.clipboard.writeText(decodeURI(tag));
+  }
+
+  // function handleOnClickBlockUser(e) {
+  //   e.preventDefault();
+  //   const userLink = e.target.parentElement.find('.description__stamp__user')[0];
+  //   const userId = userLink.getAttribute('href').substring(1);
+  //   const userName = userLink.getAttribute('title');
+  //   addUserToBlocked(userId, userName);
+  //   removeExistingCoubsByUser(userId);
+  // }
+
+  function removeClosestCoub(el) {
+    el.closest(`.${coubClass}`).remove();
+  }
+
+  function removeExistingCoubsByTag(tag) {
+    document.querySelectorAll(`.${tagClass}[href="/tags/${tag}"]`).forEach(removeClosestCoub);
+  }
+
+  // function removeExistingCoubsByUser(userId) {
+  //   document.querySelectorAll('.description__stamp a[href="/' + userId + '"]').forEach(removeClosestCoub);
+  // }
+
+  function addButtonToTagLink(tagLink) {
+    if (!tagLink.hasAttribute('href')) return;
+
+    const tagValue = tagLink.getAttribute('href').substring(6);
+    if (blockedTags.includes(tagValue)) {
+      removeClosestCoub(tagLink);
+    }
+
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = tagActionsClass;
+    tagLink.append(actionsContainer);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.classList.add(tagBtnClass, copyTagBtnClass);
+    copyBtn.title = 'Copy tag to clipboard';
+    copyBtn.innerHTML = copySvgIcon;
+    actionsContainer.append(copyBtn);
+
+    const blockBtn = document.createElement('button');
+    blockBtn.classList.add(tagBtnClass, blockTagBtnClass);
+    blockBtn.title = 'Filter out coubs with this tag';
+    blockBtn.innerHTML = blockSvgIcon;
+    actionsContainer.append(blockBtn);
+  }
+
+  // function addButtonToUserLink (link) {
+  //   if (!link.hasAttribute('href')) return;
+
+  //   const userId = $(link).attr('href').substring(1);
+  //   if (objectHasProperty(userId, blockedUsers)) {
+  //     $(link).closest('.coub').remove();
+  //   }
+
+  //   $(link).parent().append('<button type="button" class="filterByUser" title="Add user to Blacklist">Block</button>');
+  // }
+
+  function addTagToBlocked (tag) {
+    // reload from localStorage to get actual state
+    blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
+    if (!blockedTags.includes(tag)) {
+      blockedTags.push(tag);
+      localStorage.setItem(blockedTagsField, JSON.stringify(blockedTags));
+    }
+  }
+
+  // function addUserToBlocked (userId, userName) {
+  //   // reload from localStorage to get actual state
+  //   blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
+  //   if (!blockedUsers.hasOwnProperty(userId)) {
+  //     blockedUsers[userId] = userName;
+  //     localStorage.setItem(blockedUsersField, JSON.stringify(blockedUsers));
+  //   }
+  // }
+
+  initBetterCoub();
 })();
