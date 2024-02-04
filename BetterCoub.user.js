@@ -1,13 +1,15 @@
 // ==UserScript==
-// @name         BetterCoub
-// @namespace    https://github.com/tkachen/better-coub
-// @version      0.3.1
-// @description  Filter out coubs by tags and users
-// @author       tkachen
-// @match        https://coub.com/*
-// @downloadURL  https://github.com/tkachen/better-coub/raw/master/BetterCoub.user.js
-// @require      https://raw.githubusercontent.com/uzairfarooq/arrive/master/minified/arrive.min.js
-// @grant        GM_addStyle
+// @name            BetterCoub
+// @name:ru         BetterCoub
+// @namespace       https://github.com/tkachen/better-coub
+// @version         0.3.2
+// @description     Adds blacklists for users and tags, adds copy tag button on Coub.com
+// @description:ru  Добавляет черные списки для пользователей и тегов, добавляет конопку для копирования тега на Coub.com
+// @author          tkachen
+// @match           https://coub.com/*
+// @downloadURL     https://github.com/tkachen/better-coub/raw/master/BetterCoub.user.js
+// @require         https://raw.githubusercontent.com/uzairfarooq/arrive/master/minified/arrive.min.js
+// @grant           GM_addStyle
 // ==/UserScript==
 
 (function() {
@@ -27,6 +29,19 @@
   const blockTagBtnClass = 'blockTagBtn';
   const copyTagBtnClass = 'copyTagBtn';
   const blockUserBtnClass = 'blockUserBtn';
+
+  const strings = {
+    'ru': {
+      copyTagTooltip: 'Копировать тег в буфер обмена',
+      blockTagTooltip: 'Добавить тег в черный список',
+      blockUserTooltip: 'Добавить пользователя в черный список',
+    },
+    'en': {
+      copyTagTooltip: 'Copy tag to clipboard',
+      blockTagTooltip: 'Add tag to blacklist',
+      blockUserTooltip: 'Add user to blacklist',
+    },
+  }
 
   const blockSvgIcon = `
     <svg width="24" height="24" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -111,6 +126,8 @@
     }
   `;
 
+  const lang = window.eval('I18n.locale');
+
   let blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
   let blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
 
@@ -156,7 +173,6 @@
     coub.remove();
   }
 
-
   function removeExistingCoubsByTag(tag) {
     document.querySelectorAll(`.${tagClass}[href="/tags/${tag}"]`).forEach(removeClosestCoub);
   }
@@ -189,7 +205,6 @@
     navigator.clipboard.writeText(decodeURI(tag));
   }
 
-
   function addButtonToTagLink(tagLink) {
     const tagValue = tagLink.getAttribute('href').substring(6);
     if (isTagBlocked(tagValue)) {
@@ -202,13 +217,13 @@
 
     const copyBtn = document.createElement('button');
     copyBtn.classList.add(tagBtnClass, copyTagBtnClass);
-    copyBtn.title = 'Copy tag to clipboard';
+    copyBtn.title = strings[lang].copyTagTooltip;
     copyBtn.innerHTML = copySvgIcon;
     actionsContainer.append(copyBtn);
 
     const blockBtn = document.createElement('button');
     blockBtn.classList.add(tagBtnClass, blockTagBtnClass);
-    blockBtn.title = 'Filter out coubs with this tag';
+    blockBtn.title = strings[lang].blockTagTooltip;
     blockBtn.innerHTML = blockSvgIcon;
     actionsContainer.append(blockBtn);
   }
@@ -221,7 +236,7 @@
 
     const blockBtn = document.createElement('button');
     blockBtn.classList.add(blockUserBtnClass);
-    blockBtn.title = 'Filter out coubs by this user';
+    blockBtn.title = strings[lang].blockUserTooltip;
     blockBtn.innerHTML = blockSvgIcon;
     userLink.after(blockBtn);
   }
