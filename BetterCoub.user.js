@@ -2,14 +2,15 @@
 // @name            BetterCoub
 // @name:ru         BetterCoub
 // @namespace       https://github.com/tkachen/better-coub
-// @version         0.3.2
+// @version         0.3.3
 // @description     Adds blacklists for users and tags, adds copy tag button on Coub.com
-// @description:ru  Добавляет черные списки для пользователей и тегов, добавляет конопку для копирования тега на Coub.com
+// @description:ru  Добавляет черные списки для пользователей и тегов, добавляет кнопку для копирования тега на Coub.com
 // @author          tkachen
 // @match           https://coub.com/*
+// @homepageURL     https://github.com/tkachen/better-coub
 // @downloadURL     https://github.com/tkachen/better-coub/raw/master/BetterCoub.user.js
 // @require         https://raw.githubusercontent.com/uzairfarooq/arrive/master/minified/arrive.min.js
-// @grant           GM_addStyle
+// @grant           none
 // ==/UserScript==
 
 (function() {
@@ -19,6 +20,7 @@
   const blockedUsersField = 'bc_user_blacklist';
 
   const coubClass = 'coub';
+  const coubPromoClass = 'coub--promoted';
   const tagClass = 'coub__tags-tag';
   const coubTitleClass = 'coub-description__about';
   const userClass = 'coub-description__about__user';
@@ -126,7 +128,7 @@
     }
   `;
 
-  const lang = window.eval('I18n.locale');
+  const lang = I18n.locale;
 
   let blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
   let blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
@@ -141,6 +143,10 @@
 
   function isCoubActive(coubNode) {
     return coubNode.classList.contains('active');
+  }
+
+  function isCoubPromoted(coubNode) {
+    return coubNode.classList.contains(coubPromoClass);
   }
 
   function addTagToBlocked(tag) {
@@ -209,6 +215,7 @@
     const tagValue = tagLink.getAttribute('href').substring(6);
     if (isTagBlocked(tagValue)) {
       removeClosestCoub(tagLink);
+      return;
     }
 
     const actionsContainer = document.createElement('div');
@@ -232,6 +239,7 @@
     const userId = userLink.getAttribute('href').substring(1);
     if (isUserBlocked(userId)) {
       removeClosestCoub(userLink);
+      return;
     }
 
     const blockBtn = document.createElement('button');
@@ -242,13 +250,20 @@
   }
 
   function initBetterCoub() {
-    GM_addStyle(customStyles);
+    const style = document.createElement('style');
+    style.textContent = customStyles;
+    document.head.appendChild(style);
 
     document.arrive(`.${coubClass}`, {existing: true}, function(coub) {
+      if (isCoubPromoted(coub)) {
+        coub.remove();
+        return;
+      }
+      // Coubs can reappear without inner content, so tags and user links existence is not guaranteed
       const tagLinks = coub.querySelectorAll(`.${tagClass}`);
       tagLinks.forEach(addButtonToTagLink);
-      const userLink = coub.querySelector(`.${userClass}`);
-      addButtonToUserLink(userLink);
+      const userLinks = coub.querySelectorAll(`.${userClass}`);
+      userLinks.forEach(addButtonToUserLink);
     });
 
     document.addEventListener('click', function(e) {
