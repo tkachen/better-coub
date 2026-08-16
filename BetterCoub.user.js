@@ -2,7 +2,7 @@
 // @name            BetterCoub
 // @name:ru         BetterCoub
 // @namespace       https://github.com/tkachen/better-coub
-// @version         0.3.3
+// @version         0.3.4
 // @description     Adds blacklists for users and tags, adds copy tag button on Coub.com
 // @description:ru  Добавляет черные списки для пользователей и тегов, добавляет кнопку для копирования тега на Coub.com
 // @author          tkachen
@@ -128,7 +128,7 @@
     }
   `;
 
-  const lang = I18n.locale;
+  const lang = document.documentElement.lang || 'en';
 
   let blockedTags = JSON.parse(localStorage.getItem(blockedTagsField)) || [];
   let blockedUsers = JSON.parse(localStorage.getItem(blockedUsersField)) || {};
