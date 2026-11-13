@@ -2,7 +2,7 @@
 // @name            BetterCoub
 // @name:ru         BetterCoub
 // @namespace       https://github.com/tkachen/better-coub
-// @version         0.3.4
+// @version         0.3.5
 // @description     Adds blacklists for users and tags, adds copy tag button on Coub.com
 // @description:ru  Добавляет черные списки для пользователей и тегов, добавляет кнопку для копирования тега на Coub.com
 // @author          tkachen
@@ -24,6 +24,7 @@
   const tagClass = 'coub__tags-tag';
   const coubTitleClass = 'coub-description__about';
   const userClass = 'coub-description__about__user';
+  const hiddenCoubClass = 'bc-hidden';
   const coubPlayerButton = 'viewer__click';
 
   const tagActionsClass = 'tagActions';
@@ -71,6 +72,10 @@
       --btn-hover-color: #000000;
       --copy-btn-hover-bg: #0084FF;
       --block-btn-hover-bg: #D0021B;
+    }
+
+    .${hiddenCoubClass} {
+      display: none !important;
     }
 
     .${tagClass} {
@@ -172,11 +177,25 @@
     if (btn) btn.click();
   }
 
+  // Don't remove React-managed nodes: it breaks React reconciliation (insertBefore errors)
+  function hideCoub(coub) {
+    if (!isCoubActive(coub)) {
+      coub.classList.add(hiddenCoubClass);
+      return;
+    }
+    // let the native player pause itself first, then hide
+    pauseCoub(coub);
+    setTimeout(() => {
+      coub.classList.add(hiddenCoubClass);
+      // fallback: if sound is still going, stop it
+      coub.querySelectorAll('video, audio').forEach(m => { if (!m.paused) m.pause(); });
+    }, 300);
+  }
+
   function removeClosestCoub(el) {
     const coub = el.closest(`.${coubClass}`);
     if (!coub) return;
-    if (isCoubActive(coub)) pauseCoub(coub);
-    coub.remove();
+    hideCoub(coub);
   }
 
   function removeExistingCoubsByTag(tag) {
@@ -218,6 +237,8 @@
       return;
     }
 
+    if (tagLink.querySelector(`.${tagActionsClass}`)) return;
+
     const actionsContainer = document.createElement('div');
     actionsContainer.className = tagActionsClass;
     tagLink.append(actionsContainer);
@@ -242,6 +263,8 @@
       return;
     }
 
+    if (userLink.nextElementSibling?.classList.contains(blockUserBtnClass)) return;
+
     const blockBtn = document.createElement('button');
     blockBtn.classList.add(blockUserBtnClass);
     blockBtn.title = strings[lang].blockUserTooltip;
@@ -256,7 +279,7 @@
 
     document.arrive(`.${coubClass}`, {existing: true}, function(coub) {
       if (isCoubPromoted(coub)) {
-        coub.remove();
+        hideCoub(coub);
         return;
       }
       // Coubs can reappear without inner content, so tags and user links existence is not guaranteed
