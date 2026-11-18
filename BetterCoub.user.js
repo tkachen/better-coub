@@ -2,7 +2,7 @@
 // @name            BetterCoub
 // @name:ru         BetterCoub
 // @namespace       https://github.com/tkachen/better-coub
-// @version         0.4.0
+// @version         0.4.1
 // @description     Adds blacklists for users and tags, adds copy tag button on Coub.com
 // @description:ru  Добавляет черные списки для пользователей и тегов, добавляет кнопку для копирования тега на Coub.com
 // @author          tkachen
@@ -454,12 +454,13 @@
     setTimeout(() => { delete coub.dataset.bcPausing; }, PAUSE_LOCK_MS);
   }
 
-  // Coubs are hidden, not removed: removing React-managed nodes breaks
-  // React reconciliation (insertBefore errors)
+  // Coubs are hidden, not removed: removing React-managed nodes breaks React
+  // reconciliation (insertBefore errors). The 'coub' class is dropped, though, because
+  // the site finds coubs by '.page .coub' for hotkeys (j/k), scroll detection and layout,
+  // so it will simply not see the hidden ones.
   function hideCoub(coub) {
-    // A coub may be hit several times: handle only once
-    if (coub.dataset.bcHiding) return;
     coub.dataset.bcHiding = '1';
+    coub.classList.remove(coubClass);
     silenceCoub(coub);
   }
 
